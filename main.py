@@ -123,8 +123,16 @@ for f in os.scandir(DATA_DIR):
                 # 如果有记录的can_raw_yaw_rate值，计算它们的平均值
                 if all_raw_yaw_rates:
                     last_snsyaw_value = sum(all_raw_yaw_rates) / len(all_raw_yaw_rates)
+                    if last_snsyaw_value>(float(row[8])+300.0):
+                        last_snsyaw_value-=360
+                    if last_snsyaw_value<(float(row[8])-300.0):
+                        last_snsyaw_value+=360
                     df_GNRMC.loc[index, 'can_raw_yaw_rate'] = last_snsyaw_value
                     last_snsrawyaw_value = sum(all_sns_raw_yaw_rates) / len(all_sns_raw_yaw_rates)
+                    if last_snsrawyaw_value>(float(row[8])+300.0):
+                        last_snsrawyaw_value-=360
+                    if last_snsrawyaw_value<(float(row[8])-300.0):
+                        last_snsrawyaw_value+=360
                     df_GNRMC.loc[index, 'sns_raw_yaw_rate'] = last_snsrawyaw_value
                 else:
                     last_snsyaw_value = None  # 如果没有值，设置为None
