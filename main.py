@@ -17,6 +17,7 @@ df_mc_li = []
 combined_dfs = []
 mc_name_li = []
 last_snsyaw_values = []  # 存储每个GNRMC记录对应的最后一个SNSYAW值
+last_snsrawyaw_values = []  # 存储每个GNRMC记录对应的最后一个SNSRAWYAW值
 
 for f in os.scandir(DATA_DIR):
     if f.path.endswith('.mc'):
@@ -43,7 +44,6 @@ for f in os.scandir(DATA_DIR):
                 df_SNSYAW.iloc[0, df_SNSYAW.columns.get_loc('can_raw_yaw_rate')] = first_gnrmc_speed
 
         # 处理 $SNSYAW 数据
-
         for i in df_SNSYAW.index:
             if i == df_SNSYAW.index[0]: continue
             prev_idx = df_SNSYAW.index[df_SNSYAW.index.get_loc(i) - 1]
@@ -52,8 +52,35 @@ for f in os.scandir(DATA_DIR):
                 float(df_SNSYAW.loc[i, 2]) if float(df_SNSYAW.loc[i, 2]) < 2000 else float(
                     df_SNSYAW.loc[i, 2]) - 6553.6, 1)) + df_SNSYAW.loc[prev_idx, 'can_raw_yaw_rate']
 
-        # 提取 $SNSRAWYAW 数据
+        # 提取 $SNSRAWYAW 数据并创建副本来避免 SettingWithCopyWarning
         df_SNSRAWYAW = df_mc[df_mc[0] == '$SNSRAWYAW'].copy()
+        df_GNRMC['last_snsrawyaw_values'] = pd.NA  # 用 pd.NA 初始化新列
+
+        # 检查是否有GNRMC数据
+        if not df_GNRMC.empty:
+            # 获取第一行GNRMC的第8列数据，并转换为浮点数
+            first_gnrmc_speed = pd.to_numeric(df_GNRMC.iloc[0, 8], errors='coerce')
+
+            df_SNSRAWYAW = df_mc[df_mc[0] == '$SNSRAWYAW'].copy()
+            df_SNSRAWYAW = df_SNSRAWYAW.iloc[:, :16]
+            df_SNSRAWYAW['sns_raw_yaw_rate'] = .000
+
+            # 检查是否有SNSYAW数据并且GNRMC的速度值不是缺失值
+            if not df_SNSRAWYAW.empty and first_gnrmc_speed is not None and not pd.isna(first_gnrmc_speed):
+                # 将GNRMC的第一行速度值赋给SNSYAW的第一行sns_raw_yaw_rate列
+                df_SNSRAWYAW.iloc[0, df_SNSRAWYAW.columns.get_loc('sns_raw_yaw_rate')] = first_gnrmc_speed
+
+        # 处理 $SNSYAW 数据
+        for i in df_SNSRAWYAW.index:
+            if i == df_SNSRAWYAW.index[0]: continue
+            prev_idx = df_SNSRAWYAW.index[df_SNSRAWYAW.index.get_loc(i) - 1]
+
+            #TODO:求平均数
+
+            # 这里的代码已经为df_SNSRAWYAW计算了sns_raw_yaw_rate
+            df_SNSRAWYAW.loc[i, 'sns_raw_yaw_rate'] = (-0.10 * round(
+                float(df_SNSRAWYAW.loc[i, 2]) if float(df_SNSRAWYAW.loc[i, 2]) < 2000 else float(
+                    df_SNSRAWYAW.loc[i, 2]) - 6553.60, 3)) + df_SNSRAWYAW.loc[prev_idx, 'sns_raw_yaw_rate']
 
         # 初始化用于存储最后一个SNSYAW值和can_raw_yaw_rate的变量
         last_snsyaw_value = pd.NA
@@ -61,6 +88,13 @@ for f in os.scandir(DATA_DIR):
 
         # 初始化一个列表来存储所有的can_raw_yaw_rate值
         all_raw_yaw_rates = []
+
+        # 初始化用于存储最后一个SNSYAW值和sns_raw_yaw_rate的变量
+        last_snsrawyaw_values = pd.NA
+        last_sns_raw_yaw_rate = None  # 新增变量
+
+        # 初始化一个列表来存储所有的sns_raw_yaw_rate值
+        all_sns_raw_yaw_rates = []
 
         # 遍历 df_mc 提取 can_raw_yaw_rate 并在需要时计算平均值
         for index, row in df_mc.iterrows():
@@ -70,6 +104,15 @@ for f in os.scandir(DATA_DIR):
 
                 # 将当前值添加到列表中
                 all_raw_yaw_rates.append(current_can_raw_yaw_rate)
+
+            # elif row[0] == '$SNSRAWYAW':
+            #     # 获取当前的can_raw_yaw_rate值，并转换为浮点数
+            #     current_sns_raw_yaw_rate = float(
+            #         df_SNSRAWYAW.loc[df_SNSRAWYAW.index == index, 'sns_raw_yaw_rate'].values[0])
+
+                # # 将当前值添加到列表中
+                # all_sns_raw_yaw_rates.append(current_sns_raw_yaw_rate)
+
 
             elif row[0] == '$GNRMC':
                 # 如果有记录的can_raw_yaw_rate值，计算它们的平均值
