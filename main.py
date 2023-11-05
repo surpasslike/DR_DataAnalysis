@@ -75,12 +75,20 @@ for f in os.scandir(DATA_DIR):
             if i == df_SNSRAWYAW.index[0]: continue
             prev_idx = df_SNSRAWYAW.index[df_SNSRAWYAW.index.get_loc(i) - 1]
 
-            #TODO:求平均数
+            # TODO:求平均数
 
             # 这里的代码已经为df_SNSRAWYAW计算了sns_raw_yaw_rate
-            df_SNSRAWYAW.loc[i, 'sns_raw_yaw_rate'] = (-0.10 * round(
+            df_SNSRAWYAW.loc[i, 'sns_raw_yaw_rate'] = (-0.10 * (round(
                 float(df_SNSRAWYAW.loc[i, 2]) if float(df_SNSRAWYAW.loc[i, 2]) < 2000 else float(
-                    df_SNSRAWYAW.loc[i, 2]) - 6553.60, 3)) + df_SNSRAWYAW.loc[prev_idx, 'sns_raw_yaw_rate']
+                    df_SNSRAWYAW.loc[i, 2]) - 6553.60, 5) + round(
+                float(df_SNSRAWYAW.loc[i, 4]) if float(df_SNSRAWYAW.loc[i, 4]) < 2000 else float(
+                    df_SNSRAWYAW.loc[i, 4]) - 6553.60, 5) + round(
+                float(df_SNSRAWYAW.loc[i, 6]) if float(df_SNSRAWYAW.loc[i, 6]) < 2000 else float(
+                    df_SNSRAWYAW.loc[i, 6]) - 6553.60, 5) + round(
+                float(df_SNSRAWYAW.loc[i, 8]) if float(df_SNSRAWYAW.loc[i, 8]) < 2000 else float(
+                    df_SNSRAWYAW.loc[i, 8]) - 6553.60, 5) + round(
+                float(df_SNSRAWYAW.loc[i, 10]) if float(df_SNSRAWYAW.loc[i, 10]) < 2000 else float(
+                    df_SNSRAWYAW.loc[i, 10]) - 6553.60, 5)) / 5) + df_SNSRAWYAW.loc[prev_idx, 'sns_raw_yaw_rate']
 
         # 初始化用于存储最后一个SNSYAW值和can_raw_yaw_rate的变量
         last_snsyaw_value = pd.NA
@@ -110,9 +118,8 @@ for f in os.scandir(DATA_DIR):
             #     current_sns_raw_yaw_rate = float(
             #         df_SNSRAWYAW.loc[df_SNSRAWYAW.index == index, 'sns_raw_yaw_rate'].values[0])
 
-                # # 将当前值添加到列表中
-                # all_sns_raw_yaw_rates.append(current_sns_raw_yaw_rate)
-
+            # # 将当前值添加到列表中
+            # all_sns_raw_yaw_rates.append(current_sns_raw_yaw_rate)
 
             elif row[0] == '$GNRMC':
                 # 如果有记录的can_raw_yaw_rate值，计算它们的平均值
