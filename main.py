@@ -54,7 +54,7 @@ for f in os.scandir(DATA_DIR):
 
         # 提取 $SNSRAWYAW 数据并创建副本来避免 SettingWithCopyWarning
         df_SNSRAWYAW = df_mc[df_mc[0] == '$SNSRAWYAW'].copy()
-        df_GNRMC['last_snsrawyaw_values'] = pd.NA  # 用 pd.NA 初始化新列
+        df_GNRMC['last_snsrawyaw_value'] = pd.NA  # 用 pd.NA 初始化新列
 
         # 检查是否有GNRMC数据
         if not df_GNRMC.empty:
@@ -74,8 +74,6 @@ for f in os.scandir(DATA_DIR):
         for i in df_SNSRAWYAW.index:
             if i == df_SNSRAWYAW.index[0]: continue
             prev_idx = df_SNSRAWYAW.index[df_SNSRAWYAW.index.get_loc(i) - 1]
-
-            # TODO:求平均数
 
             # 这里的代码已经为df_SNSRAWYAW计算了sns_raw_yaw_rate
             df_SNSRAWYAW.loc[i, 'sns_raw_yaw_rate'] = (-0.10 * (round(
@@ -98,7 +96,7 @@ for f in os.scandir(DATA_DIR):
         all_raw_yaw_rates = []
 
         # 初始化用于存储最后一个SNSYAW值和sns_raw_yaw_rate的变量
-        last_snsrawyaw_values = pd.NA
+        last_snsrawyaw_value = pd.NA
         last_sns_raw_yaw_rate = None  # 新增变量
 
         # 初始化一个列表来存储所有的sns_raw_yaw_rate值
@@ -113,27 +111,32 @@ for f in os.scandir(DATA_DIR):
                 # 将当前值添加到列表中
                 all_raw_yaw_rates.append(current_can_raw_yaw_rate)
 
-            # elif row[0] == '$SNSRAWYAW':
-            #     # 获取当前的can_raw_yaw_rate值，并转换为浮点数
-            #     current_sns_raw_yaw_rate = float(
-            #         df_SNSRAWYAW.loc[df_SNSRAWYAW.index == index, 'sns_raw_yaw_rate'].values[0])
+            elif row[0] == '$SNSRAWYAW':
+                # 获取当前的can_raw_yaw_rate值，并转换为浮点数
+                current_sns_raw_yaw_rate = float(
+                    df_SNSRAWYAW.loc[df_SNSRAWYAW.index == index, 'sns_raw_yaw_rate'].values[0])
 
-            # # 将当前值添加到列表中
-            # all_sns_raw_yaw_rates.append(current_sns_raw_yaw_rate)
+                # 将当前值添加到列表中
+                all_sns_raw_yaw_rates.append(current_sns_raw_yaw_rate)
 
             elif row[0] == '$GNRMC':
                 # 如果有记录的can_raw_yaw_rate值，计算它们的平均值
                 if all_raw_yaw_rates:
                     last_snsyaw_value = sum(all_raw_yaw_rates) / len(all_raw_yaw_rates)
                     df_GNRMC.loc[index, 'can_raw_yaw_rate'] = last_snsyaw_value
+                    last_snsrawyaw_value = sum(all_sns_raw_yaw_rates) / len(all_sns_raw_yaw_rates)
+                    df_GNRMC.loc[index, 'sns_raw_yaw_rate'] = last_snsrawyaw_value
                 else:
                     last_snsyaw_value = None  # 如果没有值，设置为None
+                    last_snsrawyaw_value = None
 
                 # 为$GNRMC行设置平均的last_snsyaw_value
                 df_GNRMC.loc[index, 'last_snsyaw_value'] = last_snsyaw_value
+                df_GNRMC.loc[index, 'last_snsrawyaw_value'] = last_snsrawyaw_value
 
                 # 重置all_raw_yaw_rates列表以便为下一个$GNRMC条目收集新的can_raw_yaw_rate值
                 all_raw_yaw_rates = []
+                all_sns_raw_yaw_rates = []
 
         # 按照原顺序合并数据
         combined = pd.concat([df_SNSYAW, df_SNSRAWYAW, df_GNRMC], axis=0).sort_index()
@@ -141,8 +144,9 @@ for f in os.scandir(DATA_DIR):
 
         # 添加整个SNSYAW的最后值列表
         sns_yaw_values = df_GNRMC['last_snsyaw_value'].tolist()
-
         last_snsyaw_values.append(sns_yaw_values)
+        sns_rawyaw_values = df_GNRMC['last_snsrawyaw_value'].tolist()
+        last_snsrawyaw_values.append(sns_rawyaw_values)
 
 writer = pd.ExcelWriter(OUTPUT_FILE, engine='xlsxwriter')
 
@@ -156,6 +160,7 @@ charts_sheet = workbook.add_worksheet('charts')
 for i, combined_df in enumerate(combined_dfs):
     gnrmc_data = combined_df[combined_df[0] == '$GNRMC']
     sns_yaw_data = combined_df[combined_df[0] == '$SNSYAW']
+    sns_rawyaw_data = combined_df[combined_df[0] == '$SNSRAWYAW']
 
     # 将时间和速度数据转换为数值格式
     gnrmc_data.loc[:, 1] = gnrmc_data.loc[:, 1].apply(float)
@@ -168,12 +173,15 @@ for i, combined_df in enumerate(combined_dfs):
     charts_sheet.write('A1', 'Time')
     charts_sheet.write('B1', 'GPS')
     charts_sheet.write('C1', 'YAW')
+    charts_sheet.write('D1', 'RAWYAW')
 
     for j in range(len(time_data)):
         last_snsyaw = last_snsyaw_values[i][j] if not pd.isna(last_snsyaw_values[i][j]) else None
+        last_snsrawyaw = last_snsrawyaw_values[i][j] if not pd.isna(last_snsrawyaw_values[i][j]) else None
         charts_sheet.write(j + 1, 0, time_data.iloc[j])  # 时间写入A列
         charts_sheet.write(j + 1, 1, speed_data.iloc[j])  # 速度写入B列
         charts_sheet.write(j + 1, 2, last_snsyaw)  # 最后的SNSYAW值写入C列
+        charts_sheet.write(j + 1, 3, last_snsrawyaw)
 
     # 创建图表
     chart = workbook.add_chart({'type': 'line'})
@@ -191,6 +199,15 @@ for i, combined_df in enumerate(combined_dfs):
         'categories': f'=charts!$A$2:$A${len(time_data) + 1}',  # 使用相同的X轴数据
         'values': f'=charts!$C$2:$C${len(time_data) + 1}',  # 这里假设时间数据和SNSYAW数据行数相同
         'line': {'color': 'red'},  # 使用不同的颜色以区分线条
+        'y_axis': 0,  # 将此系列设置到第一个Y轴
+    })
+
+    # 添加第D列的数据作为新的系列（RAWYAW值）
+    chart.add_series({
+        'name': f'RAWYAW',
+        'categories': f'=charts!$A$2:$A${len(time_data) + 1}',  # 使用相同的X轴数据
+        'values': f'=charts!$D$2:$D${len(time_data) + 1}',  # 这里假设时间数据和RAWYAW数据行数相同
+        'line': {'color': 'yellow'},  # 使用不同的颜色以区分线条
         'y_axis': 0,  # 将此系列设置到第一个Y轴
     })
 
