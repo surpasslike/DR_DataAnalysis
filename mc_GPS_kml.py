@@ -62,7 +62,7 @@ def create_kml(gps_points):
     return doc.toprettyxml(indent="  ")
 
 # 文件名
-mc_file_name = "CAN_DR_SH20231025_0134_0227_0215_0216进入新建路隧道.mc"
+mc_file_name = "2修正后1503_1506tunnel2回程隧道2.mc"
 
 # 读取.mc文件
 with open(mc_file_name, 'r') as file:
@@ -77,5 +77,5 @@ kml_content = create_kml(gps_points)
 # 输出KML内容到控制台或保存到文件
 print(kml_content)
 # 可选：将KML内容保存到文件
-with open("GPSCAN_DR_SH20231025_0134_0227_0215_0216进入新建路隧道.kml", "w") as kml_file:
+with open("GPS2修正后1503_1506tunnel2回程隧道2.kml", "w") as kml_file:
     kml_file.write(kml_content)
