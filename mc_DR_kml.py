@@ -1,5 +1,6 @@
 from xml.dom.minidom import Document
 
+
 # 将度和度分格式转换为小数格式
 def convert_to_decimal_rmc(coord, direction):
     degrees = float(coord[:2]) if direction in ['N', 'S'] else float(coord[:3])
@@ -9,11 +10,13 @@ def convert_to_decimal_rmc(coord, direction):
         decimal = -decimal
     return decimal
 
+
 # 时间戳转换为日期时间的函数
 def transform_from_timestamp(timestamp):
     day_sum = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365]
     mil_of_day = 24 * 3600 * 1000
     mil_of_hour = 3600 * 1000
+    timestamp_backup = timestamp
 
     # 时间戳溢出处理
     if timestamp > 315537897599999:
@@ -49,7 +52,8 @@ def transform_from_timestamp(timestamp):
     second = timestamp // 1000
     millisecond = timestamp % 1000
 
-    return  mon, day + 1, hour+1, minute, second, millisecond
+    return hour + 1, minute, second, millisecond, timestamp_backup
+
 
 # 解析GPS数据，获取纬度和经度
 def parse_gps_data(data):
@@ -66,6 +70,7 @@ def parse_gps_data(data):
         except (IndexError, ValueError):
             continue
     return gps_data
+
 
 # 生成KML文件
 def create_kml(gps_points):
@@ -102,6 +107,7 @@ def create_kml(gps_points):
         point_element.appendChild(coordinates)
 
     return doc.toprettyxml(indent="  ")
+
 
 # 文件名
 mc_file_name = "GPS20231122133052TEXT.mc"
