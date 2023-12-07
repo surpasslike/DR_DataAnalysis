@@ -1,5 +1,7 @@
 from xml.dom.minidom import Document
 from datetime import datetime, timedelta
+import os
+
 
 # 将度和度分格式转换为小数格式
 def convert_to_decimal_rmc(coord, direction):
@@ -9,6 +11,7 @@ def convert_to_decimal_rmc(coord, direction):
     if direction in ['S', 'W']:
         decimal = -decimal
     return decimal
+
 
 # 时间戳转换为日期时间的函数
 def transform_from_timestamp(timestamp):
@@ -53,10 +56,12 @@ def transform_from_timestamp(timestamp):
 
     return hour + 1, minute, second, millisecond, timestamp_backup
 
-# 解析GPS数据，获取纬度、经度、时间以及$GNACCURACY的信息
+
+# 解析GPS数据，获取纬度、经度、时间、$GNACCURACY和$GNGST的信息
 def parse_gps_data(data):
     gps_data = []
     accuracy = None
+    gngst_info = None
 
     for line in data.splitlines():
         parts = line.split(',')
@@ -66,14 +71,19 @@ def parse_gps_data(data):
                 lat = float(parts[5])
                 extra_data = int(parts[-1])  # 获取最后一个元素作为时间戳
                 timestamp = transform_from_timestamp(extra_data)  # 将时间戳转换为实际日期时间
-                gps_data.append((lat, lon, timestamp, accuracy))
+                gps_data.append((lat, lon, timestamp, accuracy, gngst_info))
             elif line.startswith("$GNACCURACY,"):
                 # 提取$GNACCURACY的信息
                 accuracy_parts = line.split(',')
                 accuracy = f'{accuracy_parts[1]},{accuracy_parts[2]}'  # 提取第一个和第二个数字
+            elif line.startswith("$GNGST,"):
+                # 提取$GNGST的信息
+                gngst_parts = line.split(',')
+                gngst_info = f'{gngst_parts[2]},{gngst_parts[3]},{gngst_parts[4]}'  # 提取第二、第三和第四个数字
         except (IndexError, ValueError):
             continue
     return gps_data
+
 
 # 生成KML文件
 def create_kml(gps_points):
@@ -93,15 +103,16 @@ def create_kml(gps_points):
         placemark = doc.createElement('Placemark')
         document.appendChild(placemark)
 
-        # 添加时间信息和$GNACCURACY信息到description
+        # 添加时间信息、$GNACCURACY信息和$GNGST信息到description
         description = doc.createElement('description')
-        description_text = f'Time: {point[2]}, Accuracy: {point[3]}'  # 使用提取的时间信息和$GNACCURACY信息
+        description_text = f'Time: {point[2]}, Accuracy: {point[3]}, GNGST: {point[4]}'  # 使用提取的信息
         description.appendChild(doc.createTextNode(description_text))
         placemark.appendChild(description)
 
         # 创建名称（name）元素
         name = doc.createElement('name')
-        name_text = doc.createTextNode(f'{point[3]}')  # 使用提取的$GNACCURACY信息作为名称
+        second = point[2][2]  # 获取秒
+        name_text = doc.createTextNode(f'Second: {second}, Accuracy:{point[3]}, GNGST: {point[4]}')  # 显示秒、$GNACCURACY信息和$GNGST信息
         name.appendChild(name_text)
         placemark.appendChild(name)
 
@@ -117,21 +128,31 @@ def create_kml(gps_points):
 
     return doc.toprettyxml(indent="  ")
 
-# 文件名
-mc_file_name = "GPS20231122133052TEXT.mc"
 
-# 读取.mc文件
-with open(mc_file_name, 'r') as file:
-    mc_file_data = file.read()
+# 处理多个.mc文件
+mc_folder = "data"  # 存放.mc文件的文件夹
+kml_folder = "data"  # 存放.kml文件的文件夹
 
-# 使用 parse_gps_data 解析GPS数据
-gps_points = parse_gps_data(mc_file_data)
+for mc_file_name in os.listdir(mc_folder):
+    if mc_file_name.endswith(".mc"):
+        mc_file_path = os.path.join(mc_folder, mc_file_name)
 
-# 使用 create_kml 生成KML内容
-kml_content = create_kml(gps_points)
+        # 读取.mc文件
+        with open(mc_file_path, 'r') as file:
+            mc_file_data = file.read()
 
-# 输出KML内容到控制台或保存到文件
-print(kml_content)
-# 可选：将KML内容保存到文件
-with open("DR_go_GPS20231122133052TEXT.kml", "w") as kml_file:
-    kml_file.write(kml_content)
+        # 使用 parse_gps_data 解析GPS数据
+        gps_points = parse_gps_data(mc_file_data)
+
+        # 生成对应的.kml文件名
+        kml_file_name = f"DR_Accuracy_{mc_file_name[:-3]}.kml"
+        kml_file_path = os.path.join(kml_folder, kml_file_name)
+
+        # 使用 create_kml 生成KML内容
+        kml_content = create_kml(gps_points)
+
+        # 将KML内容保存到文件
+        with open(kml_file_path, "w") as kml_file:
+            kml_file.write(kml_content)
+
+        print(f"Generated KML file: {kml_file_path}")
