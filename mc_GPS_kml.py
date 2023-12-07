@@ -1,4 +1,6 @@
 from xml.dom.minidom import Document
+import os
+
 
 # 将度和度分格式转换为小数格式
 def convert_to_decimal_rmc(coord, direction):
@@ -8,6 +10,7 @@ def convert_to_decimal_rmc(coord, direction):
     if direction in ['S', 'W']:
         decimal = -decimal
     return decimal
+
 
 # 解析GPS数据，获取纬度和经度
 def parse_gps_data(data):
@@ -20,11 +23,6 @@ def parse_gps_data(data):
                 lat = convert_to_decimal_rmc(parts[3], parts[4])
                 lon = convert_to_decimal_rmc(parts[5], parts[6])
                 gps_data.append((lat, lon))
-            # if line.startswith("$PKTHEAD,"):
-            #     # 这是DR,经度和纬度在第 5 和第 6 个部分
-            #     lon = float(parts[4])
-            #     lat = float(parts[5])
-            #     gps_data.append((lat, lon))
         except (IndexError, ValueError):
             # 跳过错误的行
             continue
@@ -61,21 +59,31 @@ def create_kml(gps_points):
 
     return doc.toprettyxml(indent="  ")
 
-# 文件名
-mc_file_name = "2修正后1503_1506tunnel2回程隧道2.mc"
 
-# 读取.mc文件
-with open(mc_file_name, 'r') as file:
-    mc_file_data = file.read()
+# 处理多个.mc文件
+mc_folder = "data"  # 存放.mc文件的文件夹
+kml_folder = "data"  # 存放.kml文件的文件夹
 
-# 使用 parse_gps_data 解析GPS数据
-gps_points = parse_gps_data(mc_file_data)
+for mc_file_name in os.listdir(mc_folder):
+    if mc_file_name.endswith(".mc"):
+        mc_file_path = os.path.join(mc_folder, mc_file_name)
 
-# 使用 create_kml 生成KML内容
-kml_content = create_kml(gps_points)
+        # 读取.mc文件
+        with open(mc_file_path, 'r') as file:
+            mc_file_data = file.read()
 
-# 输出KML内容到控制台或保存到文件
-print(kml_content)
-# 可选：将KML内容保存到文件
-with open("GPS2修正后1503_1506tunnel2回程隧道2.kml", "w") as kml_file:
-    kml_file.write(kml_content)
+        # 使用 parse_gps_data 解析GPS数据
+        gps_points = parse_gps_data(mc_file_data)
+
+        # 生成对应的.kml文件名
+        kml_file_name = f"GPS_{mc_file_name[:-3]}.kml"
+        kml_file_path = os.path.join(kml_folder, kml_file_name)
+
+        # 使用 create_kml 生成KML内容
+        kml_content = create_kml(gps_points)
+
+        # 将KML内容保存到文件
+        with open(kml_file_path, "w") as kml_file:
+            kml_file.write(kml_content)
+
+        print(f"Generated KML file: {kml_file_path}")
