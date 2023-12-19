@@ -1,4 +1,6 @@
 from xml.dom.minidom import Document
+from datetime import datetime, timedelta
+import os
 
 
 # 将度和度分格式转换为小数格式
@@ -52,12 +54,13 @@ def transform_from_timestamp(timestamp):
     second = timestamp // 1000
     millisecond = timestamp % 1000
 
-    return hour + 1, minute, second, millisecond, timestamp_backup
+    return f"{hour + 1:02d}:{minute:02d}:{second:02d}.{millisecond:03d}", timestamp_backup
 
-
-# 解析GPS数据，获取纬度和经度
+# 解析GPS数据，获取纬度、经度、时间以及$GNACCURACY的信息
 def parse_gps_data(data):
     gps_data = []
+    accuracy = None
+
     for line in data.splitlines():
         parts = line.split(',')
         try:
@@ -67,7 +70,12 @@ def parse_gps_data(data):
                 extra_data = int(parts[-1])  # 获取最后一个元素作为时间戳
                 timestamp = transform_from_timestamp(extra_data)  # 将时间戳转换为实际日期时间
                 gps_data.append((lat, lon, timestamp))
+            elif line.startswith("$GNACCURACY,"):
+                # 提取$GNACCURACY的信息
+                accuracy_parts = line.split(',')
+                accuracy = f'{accuracy_parts[1]},{accuracy_parts[2]}'  # 提取第一个和第二个数字
         except (IndexError, ValueError):
+            # 跳过错误的行
             continue
     return gps_data
 
@@ -109,21 +117,30 @@ def create_kml(gps_points):
     return doc.toprettyxml(indent="  ")
 
 
-# 文件名
-mc_file_name = "GPS20231122133052TEXT.mc"
+# 处理多个.mc文件
+mc_folder = "data"  # 存放.mc文件的文件夹
+kml_folder = "data"  # 存放.kml文件的文件夹
 
-# 读取.mc文件
-with open(mc_file_name, 'r') as file:
-    mc_file_data = file.read()
+for mc_file_name in os.listdir(mc_folder):
+    if mc_file_name.endswith(".mc"):
+        mc_file_path = os.path.join(mc_folder, mc_file_name)
 
-# 使用 parse_gps_data 解析GPS数据
-gps_points = parse_gps_data(mc_file_data)
+        # 读取.mc文件
+        with open(mc_file_path, 'r') as file:
+            mc_file_data = file.read()
 
-# 使用 create_kml 生成KML内容
-kml_content = create_kml(gps_points)
+        # 使用 parse_gps_data 解析GPS数据
+        gps_points = parse_gps_data(mc_file_data)
 
-# 输出KML内容到控制台或保存到文件
-print(kml_content)
-# 可选：将KML内容保存到文件
-with open("DR_go_GPS20231122133052TEXT.kml", "w") as kml_file:
-    kml_file.write(kml_content)
+        # 生成对应的.kml文件名
+        kml_file_name = f"DR_{mc_file_name[:-3]}.kml"
+        kml_file_path = os.path.join(kml_folder, kml_file_name)
+
+        # 使用 create_kml 生成KML内容
+        kml_content = create_kml(gps_points)
+
+        # 将KML内容保存到文件
+        with open(kml_file_path, "w") as kml_file:
+            kml_file.write(kml_content)
+
+        print(f"Generated KML file: {kml_file_path}")
