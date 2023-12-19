@@ -1,4 +1,5 @@
 from xml.dom.minidom import Document
+from datetime import datetime, timedelta
 import os
 
 
@@ -12,17 +13,28 @@ def convert_to_decimal_rmc(coord, direction):
     return decimal
 
 
-# 解析GPS数据，获取纬度和经度
+# 解析GPS数据，获取纬度、经度、时间以及$GNACCURACY的信息
 def parse_gps_data(data):
     gps_data = []
+    accuracy = None
+
     for line in data.splitlines():
         parts = line.split(',')
         try:
             if line.startswith("$GNRMC,"):
-                # 这是GPS,纬度和经度在第 3 和第 5 个部分
+                # 这是GPS,纬度、经度和时间在不同部分
                 lat = convert_to_decimal_rmc(parts[3], parts[4])
                 lon = convert_to_decimal_rmc(parts[5], parts[6])
-                gps_data.append((lat, lon))
+                time = parts[1]
+                # 解析时间并增加一个小时
+                time = datetime.strptime(time, "%H%M%S.%f")
+                time += timedelta(hours=1)
+                time_str = time.strftime("%H:%M:%S")  # 修改时间格式
+                gps_data.append((lat, lon, time_str, accuracy))
+            # elif line.startswith("$GNACCURACY,"):
+            #     # 提取$GNACCURACY的信息
+            #     accuracy_parts = line.split(',')
+            #     accuracy = f'{accuracy_parts[1]},{accuracy_parts[2]}'  # 提取第一个和第二个数字
         except (IndexError, ValueError):
             # 跳过错误的行
             continue
@@ -46,6 +58,13 @@ def create_kml(gps_points):
         # 创建Placemark元素
         placemark = doc.createElement('Placemark')
         document.appendChild(placemark)
+
+        # 添加时间信息到description
+        description = doc.createElement('description')
+        # description_text = f'Time: {point[2]}, Accuracy: {point[3]}'  # 使用提取的时间信息和$GNACCURACY信息
+        description_text = f'Time: {point[2]}'  # 使用提取的时间信息
+        description.appendChild(doc.createTextNode(description_text))
+        placemark.appendChild(description)
 
         # 创建Point元素
         point_element = doc.createElement('Point')
