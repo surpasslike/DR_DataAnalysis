@@ -69,7 +69,7 @@ def parse_gps_data(data):
             if line.startswith("$PKTHEAD,"):
                 lon = float(parts[4])
                 lat = float(parts[5])
-                extra_data = int(parts[-1])  # 获取最后一个元素作为时间戳
+                extra_data = int(parts[11])  # 获取最后一个元素作为时间戳
                 timestamp = transform_from_timestamp(extra_data)  # 将时间戳转换为实际日期时间
                 gps_data.append((lat, lon, timestamp, accuracy, gngst_info))
             elif line.startswith("$GNACCURACY,"):
